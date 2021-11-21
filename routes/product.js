@@ -22,4 +22,8 @@ router.get('/get-single-product-by-slug/:slug', controller.getSingleProductBySlu
 
 router.post('/get-specific-products-by-ids', controller.getSpecificProductsByIds);
 
+router.post('/product-filter-query', controller.productFilterByQuery);
+
+router.post('/get-products-by-search', controller.getProductsBySearch);
+
 module.exports = router;

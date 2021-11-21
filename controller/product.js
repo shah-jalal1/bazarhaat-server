@@ -303,5 +303,189 @@ exports.getSingleProductById = async (req, res, next) => {
 }
 
 
+exports.productFilterByQuery = async (req, res, next) => {
+
+    try {
+        const query = req.body.query;
+        const paginate = req.body.paginate;
+        let queryProduct;
+
+        let priceRange = {
+            minPrice: 0,
+            maxPrice: 0
+        }
+        let minPrice;
+        let maxPrice;
+
+        let type = 'default';
+        let i = -1;
+
+        if (query) {
+
+            query.forEach((item, index) => {
+                if ( 'categorySlug' in item) { type = 'cat'; i = index; };
+                if ( 'subCategorySlug' in item) { type = 'subCat'; i = index; };
+                if ( 'tags' in item) { type = 'tag'; i = index; };
+            });
+
+            if (type == 'cat') {
+                minPrice = Product.find(query[i]).sort({price: 1}).limit(1);
+                maxPrice = Product.find(query[i]).sort({price: -1}).limit(1);
+            } else if (type == 'subCat') {
+                minPrice = Product.find(query[i]).sort({price: 1}).limit(1);
+                maxPrice = Product.find(query[i]).sort({price: -1}).limit(1);
+            } else if (type == 'tag') {
+                minPrice = Product.find(query[i]).sort({price: 1}).limit(1);
+                maxPrice = Product.find(query[i]).sort({price: -1}).limit(1);
+            } else {
+                minPrice = Product.find().sort({price: 1}).limit(1);
+                maxPrice = Product.find().sort({price: -1}).limit(1);
+            }
+        } else {
+            minPrice = Product.find().sort({price: 1}).limit(1);
+            maxPrice = Product.find().sort({price: -1}).limit(1);
+        }
+
+        const temp1 = await minPrice;
+        const temp2 = await maxPrice;
+
+        priceRange.minPrice = temp1.length > 0 ? temp1[0].price : 0;
+        priceRange.maxPrice = temp2.length > 0 ? temp2[0].price : 0;
+
+
+        if (req.body.select) {
+            queryProduct = Product.find({$and: query})
+                .select(req.body.select)
+                .populate('attributes')
+                .populate('brand')
+                .populate('category')
+                .populate('subCategory');
+        } else {
+            queryProduct = Product.find({$and: query})
+                .populate('attributes')
+                .populate('brand')
+                .populate('category')
+                .populate('subCategory');
+        }
+
+        if (paginate) {
+            queryProduct.skip(Number(paginate.pageSize) * (Number(paginate.currentPage) - 1)).limit(Number(paginate.pageSize))
+        }
+
+        const productsCount = await Product.countDocuments({$and: query});
+        const result = await queryProduct;
+
+        res.status(200).json({
+            data: result,
+            priceRange: priceRange,
+            count: productsCount
+        });
+
+    } catch (err) {
+        console.log(err)
+        if (!err.statusCode) {
+            err.statusCode = 500;
+            err.message = 'Something went wrong on database operation!'
+        }
+        next(err);
+    }
+}
+
+
+exports.getProductsBySearch = async (req, res, next) => {
+    try {
+
+        // Query Text
+        const search = req.query.q;
+
+        // Additional Filter
+        const filter = req.body.filter;
+
+        // Pagination
+        const pageSize = +req.query.pageSize;
+        const currentPage = +req.query.currentPage;
+
+        // Build Regex Query
+        const newQuery = search.split(/[ ,]+/);
+        const queryArray = newQuery.map((str) => ({productName: RegExp(str, 'i')}));
+        const queryArray2 = newQuery.map((str) => ({sku: RegExp(str, 'i')}));
+        // const queryArray3 = newQuery.map((str) => ({phoneNo: RegExp(str, 'i')}));
+        // const queryArray4 = newQuery.map((str) => ({username: RegExp(str, 'i')}));
+        // const regex = new RegExp(query, 'i')
+
+
+        let dataDoc;
+        let countDoc;
+
+        if (filter) {
+            dataDoc = Product.find({
+                $and: [
+                    filter,
+                    {
+                        $or: [
+                            {$and: queryArray},
+                            {$and: queryArray2},
+                            // {$and: queryArray3},
+                            // {$and: queryArray4},
+                        ]
+                    }
+                ]
+            });
+            countDoc = dataDoc = Product.countDocuments({
+                $and: [
+                    filter,
+                    {
+                        $or: [
+                            {$and: queryArray},
+                            {$and: queryArray2},
+                            // {$and: queryArray3},
+                            // {$and: queryArray4},
+                        ]
+                    }
+                ]
+            });
+        } else {
+            dataDoc = Product.find({
+                $or: [
+                    {$and: queryArray},
+                    {$and: queryArray2},
+                    // {$and: queryArray3},
+                    // {$and: queryArray4},
+                ]
+            });
+
+            countDoc = Product.countDocuments({
+                $or: [
+                    {$and: queryArray},
+                    {$and: queryArray2},
+                    // {$and: queryArray3},
+                    // {$and: queryArray4},
+                ]
+            });
+        }
+
+
+        // {marketer: {$in: [null]}}
+
+        if (pageSize && currentPage) {
+            dataDoc.skip(pageSize * (currentPage - 1)).limit(Number(pageSize))
+        }
+
+        const results = await dataDoc;
+        const count = await countDoc
+
+        res.status(200).json({
+            data: results,
+            count: count
+        });
+    } catch (err) {
+        console.log(err);
+        if (!err.statusCode) {
+            err.statusCode = 500;
+            err.message = 'Something went wrong on database operation!'
+        }
+        next(err);
+    }
+}
 
 
