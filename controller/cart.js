@@ -55,7 +55,7 @@ exports.getCartItemByUserId = async (req, res, next) => {
                     path: 'carts _id',
                     populate: {
                         path: 'product',
-                        select: 'productName productSlug categorySlug price prices discountType discountAmount  quantity images',
+                        select: 'productName productSlug categorySlug brandSlug price prices discountType discountAmount  quantity images',
                     }
                 })
             .select('carts')
